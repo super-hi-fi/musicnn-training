@@ -29,35 +29,19 @@ if __name__ == '__main__':
         print('\n' + str(config))
 
         # pescador: define (finite, batched & parallel) streamer
+        output_graph = os.path.join(model_fol, config['audio_rep']['identifier'] + '.pb')
 
         # tensorflow: define model and cost
-        # fuckin_graph = tf.Graph()
+        sess = tf.compat.v1.Session()
+        [x, y_, is_train, y, normalized_y, cost, model_vars] = train.tf_define_model_and_cost(config, False)
 
-        output_graph = os.path.join(model_fol, 'frozen.pb')
+        sess.run(tf.compat.v1.global_variables_initializer())
+        saver = tf.compat.v1.train.Saver()
 
-        # with fuckin_graph.as_default():
-        sess = tf.Session()
-
-        [x, y_, is_train, y, normalized_y, cost, model_vars] = train.tf_define_model_and_cost(config)
-        sess.run(tf.global_variables_initializer())
-
-        saver = tf.train.Saver()
         results_folder = experiment_folder + '/'
         saver.restore(sess, results_folder)
 
         gd = sess.graph.as_graph_def()
-        # for node in gd.node:
-        #     if node.op == 'RefSwitch':
-        #         node.op = 'Switch'
-        #         for index in range(len(node.input)):
-        #             if 'moving_' in node.input[index]:
-        #                 node.input[index] = node.input[index] + '/read'
-        #     elif node.op == 'AssignSub':
-        #         node.op = 'Sub'
-        #         if 'use_locking' in node.attr: del node.attr['use_locking']
-        #     elif node.op == 'AssignAdd':
-        #         node.op = 'Add'
-        #        if 'use_locking' in node.attr: del node.attr['use_locking']
 
         for node in gd.node:
             if node.op == 'RefSwitch':
@@ -82,12 +66,12 @@ if __name__ == '__main__':
                     del node.input[1]
             
         node_names =[n.name for n in gd.node if 'model' in n.name]
+
         print(node_names)
+        
         subgraph = tf.graph_util.extract_sub_graph(gd, node_names)
         tf.reset_default_graph()
         tf.import_graph_def(subgraph)
-        # node_names =['dense_1']
-
 
         output_graph_def = tf.graph_util.convert_variables_to_constants(
                 sess, # The session is used to retrieve the weights
@@ -96,10 +80,3 @@ if __name__ == '__main__':
             )
         tf.io.write_graph(output_graph_def, model_fol, output_graph, as_text=False)
         sess.close()
-
-            # Finally we serialize and dump the output graph to the filesystem
-
-            # with tf.gfile.GFile(output_graph, "wb") as f:
-            #     f.write(output_graph_def.SerializeToString())
-            # print("%d ops in the final graph." % len(output_graph_def.node))
-

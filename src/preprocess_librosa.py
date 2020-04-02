@@ -9,7 +9,7 @@ from pathlib import Path
 import yaml
 from argparse import Namespace
 
-config_file = Namespace(**yaml.load(open('config_file.yaml')))
+config_file = Namespace(**yaml.load(open('config_file.yaml'), Loader=yaml.SafeLoader))
 
 DEBUG = False
 
@@ -49,14 +49,20 @@ def do_process(files, index):
             path.mkdir(parents=True, exist_ok=True)
         # compute audio representation (pre-processing)
         length = compute_audio_repr(audio_file, audio_repr_file)
-        # index.tsv writing
-        fw = open(config_file.DATA_FOLDER + config['audio_representation_folder'] + "index_" + str(config['machine_i']) + ".tsv", "a")
-        fw.write("%s\t%s\t%s\n" % (id, audio_repr_file[len(config_file.DATA_FOLDER):], audio_file[len(config_file.DATA_FOLDER):]))
+        # remove the machine index from the filename if you are only running one machine
+        indexFilename = config_file.DATA_FOLDER + config['audio_representation_folder'] + 'index'
+        if (config['n_machines'] > 1): indexFilename = indexFilename + '_' + str(config['machine_i'])
+        fw = open(indexFilename + ".tsv", "a")
+        # write the id and the representation relative path
+        fw.write("%s\t%s\n" % (id, audio_repr_file[len(config_file.DATA_FOLDER):]))
         fw.close()
         print(str(index) + '/' + str(len(files)) + ' Computed: %s' % audio_file)
 
     except Exception as e:
-        ferrors = open(config_file.DATA_FOLDER + config['audio_representation_folder'] + "errors" + str(config['machine_i']) + ".txt", "a")
+        # remove the machine index from the filename if you are only running one machine
+        errorFilename = config_file.DATA_FOLDER + config['audio_representation_folder'] + 'errors'
+        if (config['n_machines'] > 1): errorFilename = errorFilename + '_' + str(config['machine_i'])
+        ferrors = open(errorFilename + ".txt", "a")
         ferrors.write(audio_file + "\n")
         ferrors.write(str(e))
         ferrors.close()
@@ -80,7 +86,13 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
     parser.add_argument('configurationID', help='ID of the configuration dictionary')
+    parser.add_argument('-c', '--config', help='The (optional) path for a configuration YAML')
     args = parser.parse_args()
+
+    # pull in an optional configuration file (to avoid changing the one in the repo)
+    if (args.config):
+        config_file = Namespace(**yaml.load(open(args.config), Loader=yaml.SafeLoader))
+
     config = config_file.config_preprocess[args.configurationID]
 
     config['audio_representation_folder'] = "%s__%s/" % (config['identifier'], config['type'])

@@ -10,13 +10,6 @@ from argparse import Namespace
 
 config_file = Namespace(**yaml.load(open('config_file.yaml'), Loader=yaml.SafeLoader))
 
-
-TEST_BATCH_SIZE = 64
-FILE_INDEX = config_file.DATA_FOLDER + 'index_repr.tsv'
-FILE_GROUND_TRUTH_TEST = config_file.config_train['spec']['gt_test']
-FOLD = config_file.config_train['spec']['fold']
-
-
 def evaluation(batch_dispatcher, tf_vars, array_cost, pred_array, id_array):
 
     [sess, normalized_y, cost, x, y_, is_train] = tf_vars
@@ -40,7 +33,18 @@ if __name__ == '__main__':
     # Use the -l functionality to ensamble models: python arg.py -l 1234 2345 3456 4567
     parser = argparse.ArgumentParser()
     parser.add_argument('-l', '--list', nargs='+', help='List of models to evaluate', required=True)
+    parser.add_argument('-c', '--config', help='The (optional) path for a configuration YAML')
     args = parser.parse_args()
+
+    # pull in an optional configuration file (to avoid changing the one in the repo)
+    if (args.config):
+        config_file = Namespace(**yaml.load(open(args.config), Loader=yaml.FullLoader))
+
+    TEST_BATCH_SIZE = 64
+    FILE_INDEX = config_file.DATA_FOLDER + config_file.config_train['spec']['audio_representation_folder'] + 'index.tsv'
+    FILE_GROUND_TRUTH_TEST = config_file.config_train['spec']['gt_test']
+    FOLD = config_file.config_train['spec']['fold']
+
     models = args.list
 
     # load all audio representation paths
@@ -62,7 +66,7 @@ if __name__ == '__main__':
 
         # pescador: define (finite, batched & parallel) streamer
         pack = [config, 'overlap_sampling', config['n_frames'], False]
-        streams = [pescador.Streamer(train.data_gen, id, id2audio_repr_path[id], id2gt[id], pack) for id in ids]
+        streams = [pescador.Streamer(train.data_gen_abs_path, id, config_file.DATA_FOLDER + id2audio_repr_path[id], id2gt[id], pack) for id in ids]
         mux_stream = pescador.ChainMux(streams, mode='exhaustive')
         batch_streamer = pescador.Streamer(pescador.buffer_stream, mux_stream, buffer_size=TEST_BATCH_SIZE, partial=True)
         batch_streamer = pescador.ZMQStreamer(batch_streamer)

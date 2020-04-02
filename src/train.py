@@ -13,15 +13,17 @@ from tensorflow.python.framework import ops
 import yaml
 from argparse import Namespace
 
-config_file = Namespace(**yaml.load(open('config_file.yaml'), Loader=yaml.SafeLoader))
+config_file = Namespace(**yaml.load(open('/musicnn/musicnn-training/src/config_file.yaml'), Loader=yaml.SafeLoader))
 
 
-def tf_define_model_and_cost(config):
+def tf_define_model_and_cost(config, is_train = True):
     # tensorflow: define the model
     with tf.name_scope('model'):
         x = tf.compat.v1.placeholder(tf.float32, [None, config['xInput'], config['yInput']])
         y_ = tf.compat.v1.placeholder(tf.float32, [None, config['num_classes_dataset']])
-        is_train = tf.compat.v1.placeholder(tf.bool)
+        # don't fill the is_train variable with the training placeholder if we are freezing the model
+        if is_train:
+            is_train = tf.compat.v1.placeholder(tf.bool)
 
         # choose between transfer learning or fully trainable models
         if config['load_model'] is not None:
@@ -108,12 +110,18 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('configuration',
                         help='ID in the config_file dictionary')
+    parser.add_argument('-c', '--config', help='The (optional) path for a configuration YAML')
     args = parser.parse_args()
+
+    # pull in an optional configuration file (to avoid changing the one in the repo)
+    if (args.config):
+        config_file = Namespace(**yaml.load(open(args.config), Loader=yaml.SafeLoader))
+
     config = config_file.config_train[args.configuration]
 
     # load config parameters used in 'preprocess_librosa.py',
-    config['audio_representation_folder'] = "%s__%s/" % (config_file.config_preprocess['mtgdb_spec']['identifier'],
-                                                         config_file.config_preprocess['mtgdb_spec']['type'])
+    config['audio_representation_folder'] = "%s__%s/" % (config_file.config_preprocess[config_file.DATASET + '_spec']['identifier'],
+                                                         config_file.config_preprocess[config_file.DATASET + '_spec']['type'])
     config_json = config_file.DATA_FOLDER + config['audio_representation_folder'] + 'config.json'
     with open(config_json, "r") as f:
         params = json.load(f)
@@ -136,7 +144,8 @@ if __name__ == '__main__':
         config['yInput'] = config['audio_rep']['n_mels']
 
     # load audio representation paths
-    file_index = config_file.DATA_FOLDER + 'index_repr.tsv'
+    # file_index = config_file.DATA_FOLDER + 'index_repr.tsv'
+    file_index = config_file.DATA_FOLDER + config['audio_representation_folder'] + 'index.tsv'
     [audio_repr_paths, id2audio_repr_path] = shared.load_id2path(file_index)
 
     # load training data
