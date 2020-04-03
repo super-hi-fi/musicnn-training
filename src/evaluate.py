@@ -38,7 +38,7 @@ if __name__ == '__main__':
 
     # pull in an optional configuration file (to avoid changing the one in the repo)
     if (args.config):
-        config_file = Namespace(**yaml.load(open(args.config), Loader=yaml.FullLoader))
+        config_file = Namespace(**yaml.load(open(args.config), Loader=yaml.SafeLoader))
 
     TEST_BATCH_SIZE = 64
     FILE_INDEX = config_file.DATA_FOLDER + config_file.config_train['spec']['audio_representation_folder'] + 'index.tsv'

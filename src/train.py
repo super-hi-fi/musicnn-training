@@ -13,7 +13,7 @@ from tensorflow.python.framework import ops
 import yaml
 from argparse import Namespace
 
-config_file = Namespace(**yaml.load(open('/musicnn/musicnn-training/src/config_file.yaml'), Loader=yaml.SafeLoader))
+config_file = Namespace(**yaml.load(open('config_file.yaml'), Loader=yaml.SafeLoader))
 
 
 def tf_define_model_and_cost(config, is_train = True):
